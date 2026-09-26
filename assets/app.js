@@ -171,7 +171,9 @@
       '<h3>' + esc(p.theme || p.title || "(untitled post)") + '</h3>' +
       '<div class="mono" style="font-size:11px;color:var(--mist)">' + esc(p.author || "") +
       (p.venue ? ' · ' + esc(p.venue) : '') + (p.brand ? ' · ' + esc(p.brand) : '') + '</div>' +
-      (p.caption ? '<div class="caption">' + esc(p.caption) + '</div>' : (p.summary ? '<div class="caption">' + esc(p.summary) + '</div>' : '')) +
+      (embedHTML(p) ||
+        (p.caption ? '<div class="caption">' + esc(p.caption) + '</div>'
+                   : (p.summary ? '<div class="caption">' + esc(p.summary) + '</div>' : ''))) +
       '<div class="engrow"><span><b>' + fmt(p.likes) + '</b> likes</span><span><b>' + fmt(p.comments) +
       '</b> comments</span><span><b>' + fmt(p.shares) + '</b> shares</span><span><b>' + fmt(p.views) + '</b> views</span></div>' +
       '<div class="verdict ' + verdictClass(p.verdict) + '"><div class="vlab">Did footfall move?</div>' +
@@ -186,6 +188,31 @@
   }
   function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
   function escAttr(s) { return esc(s).replace(/"/g, "&quot;"); }
+
+  // Real embedded post via each platform's iframe embed (no third-party SDKs).
+  function embedHTML(p) {
+    var u = p.url || "", m;
+    if (p.platform === "youtube") {
+      m = u.match(/[?&]v=([^&]+)/) || u.match(/youtu\.be\/([^?&]+)/) || u.match(/shorts\/([^?&/]+)/);
+      if (m) return frame("https://www.youtube.com/embed/" + m[1], 190, true);
+    } else if (p.platform === "tiktok") {
+      m = u.match(/\/video\/(\d+)/) || u.match(/\/(\d{6,})/);
+      if (m) return frame("https://www.tiktok.com/embed/v2/" + m[1], 560);
+    } else if (p.platform === "instagram") {
+      m = u.match(/\/(?:p|reel|tv)\/([^\/?#]+)/);
+      if (m) return frame("https://www.instagram.com/p/" + m[1] + "/embed", 500);
+    } else if (p.platform === "facebook") {
+      return frame("https://www.facebook.com/plugins/post.php?href=" +
+        encodeURIComponent(u) + "&show_text=true&width=380", 520);
+    }
+    return "";
+  }
+  function frame(src, h, fs) {
+    return '<iframe class="embed" style="height:' + h + 'px" src="' + escAttr(src) +
+      '" loading="lazy" scrolling="no" frameborder="0"' +
+      (fs ? ' allow="encrypted-media;picture-in-picture" allowfullscreen' : '') +
+      '></iframe>';
+  }
 
   // ---- Small multiples ----------------------------------------------------
   function renderSmall() {
@@ -326,9 +353,7 @@
       'Footfall window ' + m.footfall_window[0] + " → " + m.footfall_window[1] +
       '; posts ' + m.post_window[0] + " → " + m.post_window[1] + '.<br>' +
       '<b>What this can show:</b> catchment, audience composition, cross-mall behaviour, and whether an event stands out from noise. ' +
-      '<b>What it cannot:</b> absolute footfall, post-level attribution below the noise floor, or population-level claims.<br>' +
-      '<b>Data:</b> ' + esc(m.source) + ' Movement is aggregated; no device-level data is published. Posts are public promotional content shown with attribution and source links. ' +
-      'Generated ' + m.generated_at + '.';
+      '<b>What it cannot:</b> absolute footfall, post-level attribution below the noise floor, or population-level claims.';
   }
 
   // ---- wiring -------------------------------------------------------------
