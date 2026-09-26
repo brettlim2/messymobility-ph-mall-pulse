@@ -56,6 +56,22 @@ header{position:sticky;top:0;z-index:30;background:rgba(11,14,24,.85);
 .lede b{color:var(--heading);font-weight:600;}
 
 /* KPI band */
+.answer-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:28px;}
+.acard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;border-top:2px solid var(--teal);}
+.acard .big{font-family:var(--disp);font-weight:700;color:var(--heading);font-size:34px;line-height:1;letter-spacing:-.02em;}
+.acard.signal .big{color:var(--volt);}
+.acard .cap{font-size:13px;color:var(--body);margin-top:10px;}
+.acard .k{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);}
+.explore-cta{display:inline-block;margin-top:24px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--volt);border:1px solid var(--wire);border-radius:20px;padding:9px 18px;}
+.explore-cta:hover{border-color:var(--volt);color:var(--volt);}
+.reno-strip{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;}
+.reno-step{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);padding:16px;text-align:center;}
+.reno-step .p{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);}
+.reno-step .s{font-family:var(--disp);font-weight:700;font-size:30px;color:var(--heading);margin-top:6px;}
+.reno-step.mid .s{color:var(--volt);}
+.reno-step .d{font-size:11px;color:var(--mist);margin-top:4px;}
+.reno-arrow{display:flex;align-items:center;color:var(--faint);font-size:20px;padding:0 6px;}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:30px;}
 .kpi{background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);padding:15px 16px 13px;}
 .kpi .lab{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);}
@@ -182,10 +198,12 @@ footer a{color:var(--mist);}
     <span class="mark"><span class="dot"></span> MessyMobility</span>
     <span class="mono htitle" style="font-size:12px;letter-spacing:.06em">Signal &amp; Footfall</span>
     <nav class="nav">
-      <a href="#explorer">Explorer</a>
-      <a href="#didit">Did it move?</a>
-      <a href="#floor">Noise floor</a>
-      <a href="#exception">Exception</a>
+      <a href="#explorer">Explore</a>
+      <a href="#campaigns">Campaigns</a>
+      <a href="#engagement">Engagement</a>
+      <a href="#detection">Detection</a>
+      <a href="#renovation">Renovation</a>
+      <a href="#audience">Audience</a>
       <a href="#methods">Methods</a>
     </nav>
   </div>
@@ -194,11 +212,14 @@ footer a{color:var(--mist);}
 <main class="wrap">
   <section class="hero" id="top">
     <div class="eyebrow">Manila · SM North EDSA &amp; TriNoma · 12 months</div>
-    <h1>Thousands of posts. <em>Did any of them move the crowd?</em></h1>
+    <h1>Social engagement <em>≠</em> measurable mall traffic.</h1>
     <p class="lede">We tracked a year of anonymised movement across two of Manila's
-      biggest malls and lined it up against every social post we could find. This is
-      an honest look at whether the posts and events actually changed footfall —
-      <b>and mostly, they didn't</b>. Click any post to see for yourself.</p>
+      biggest malls and lined it up against every social post we could find. Across
+      thousands of posts, we could not detect a footfall response to any of them —
+      but the same data <b>clearly detects a mall-scale change</b> when one happens.
+      Here's the evidence.</p>
+    <div class="answer-cards" id="answerCards"></div>
+    <a class="explore-cta" href="#explorer">Explore the evidence ↓</a>
     <div class="kpis" id="kpis"></div>
   </section>
 
@@ -276,11 +297,11 @@ footer a{color:var(--mist);}
     <div class="smgrid" id="smgrid"></div>
   </section>
 
-  <section id="floor">
-    <div class="sechd"><span class="num">03</span><h2>Why most posts are invisible here</h2></div>
+  <section id="detection">
+    <div class="sechd"><span class="num">05</span><h2>How much change can we detect?</h2></div>
     <p class="secsub">A location panel is a sample. Day-to-day it wobbles by hundreds
       of shoppers on its own. An event has to clear that wobble — the noise floor —
-      to be detectable at all.</p>
+      to register at all.</p>
     <div class="two">
       <div class="card"><div id="floorChart"></div></div>
       <div class="card">
@@ -291,25 +312,34 @@ footer a{color:var(--mist);}
           distinguishable from noise. Single-day effects need far more.</p>
       </div>
     </div>
+    <div class="card" style="margin-top:16px">
+      <div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Footfall around events, day −7 to +7 (averaged over all events)</div>
+      <div id="lagChart"></div>
+    </div>
     <div class="callout" style="margin-top:16px">
       <h3>The honest headline</h3>
       <p id="headline">—</p>
     </div>
   </section>
 
-  <section id="exception">
-    <div class="sechd"><span class="num">04</span><h2>The one thing that did move</h2></div>
-    <p class="secsub">The instrument isn't blind — it just needs a mall-scale change.
-      When TriNoma renovated (Feb–May 2026), the cross-mall share shifted by about two
-      points and held. That's the size of change this data can actually see.</p>
-    <div class="card"><div id="cpChart"></div></div>
+  <section id="renovation">
+    <div class="sechd"><span class="num">06</span><h2>Can the data detect real change? Yes.</h2></div>
+    <p class="secsub">The instrument isn't blind — it needs a mall-scale change. When
+      TriNoma renovated (Feb–May 2026) its share of the two-mall panel shifted and
+      held, then recovered. The same system that finds no signal from individual
+      posts clearly registers a structural change. (Share is used because it cancels
+      panel drift; raw visitor counts are not comparable across the year.)</p>
+    <div id="renoStrip"></div>
+    <div class="card" style="margin-top:12px"><div id="cpChart"></div></div>
   </section>
 
-  <section id="who">
-    <div class="sechd"><span class="num">05</span><h2>Who the crowd is (observed)</h2></div>
-    <p class="secsub">What the panel <i>can</i> show well: where visitors come from,
-      and how the two malls share an audience. Observed shares, unweighted.</p>
-    <div class="two">
+  <section id="audience">
+    <div class="sechd"><span class="num">07</span><h2>Who changed their behaviour?</h2></div>
+    <p class="secsub">During TriNoma's renovation, did its crowd change? Compositional
+      shares (decay-safe) across before / during / after. Then: did the crowd on big
+      event nights look any different? (It didn't.)</p>
+    <div id="renoAudience"></div>
+    <div class="two" style="margin-top:16px">
       <div class="card"><div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Reach by home distance</div><div id="reachChart"></div></div>
       <div class="card"><div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:12px">Cross-mall behaviour</div><div id="crossStats"></div></div>
     </div>

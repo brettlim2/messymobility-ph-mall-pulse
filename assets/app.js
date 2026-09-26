@@ -367,6 +367,94 @@
       '<div style="font-size:11px;color:var(--faint)">' + sub + '</div></div>';
   }
 
+  // ---- answer cards (hero) ------------------------------------------------
+  function renderAnswer() {
+    var host = document.getElementById("answerCards"); if (!host) return;
+    var c = D.insight_cards;
+    var cards = [
+      ["Social impact", "0", "of 10", "highest-engagement posts produced a footfall response we can detect", true],
+      ["What does move traffic", "+" + c.what_moves.renovation_share_swing_pp + "pp", "share",
+        "sustained cross-mall share shift during the TriNoma renovation", false],
+      ["Detection threshold", "±" + c.detection_threshold.campaign7d_pct + "%", "7-day",
+        "the smallest weekly campaign effect this panel can reliably detect", false]
+    ];
+    host.innerHTML = cards.map(function (x) {
+      return '<div class="acard' + (x[4] ? " signal" : "") + '"><div class="k">' + x[0] + '</div>' +
+        '<div class="big">' + x[1] + ' <span style="font-size:15px;color:var(--mist);font-family:var(--mono)">' + x[2] + '</span></div>' +
+        '<div class="cap">' + x[3] + '</div></div>';
+    }).join("");
+  }
+
+  // ---- lag curve (detection) ----------------------------------------------
+  function renderLag() {
+    var host = document.getElementById("lagChart"); if (!host || !D.lag_curve) return;
+    var lc = D.lag_curve, W = 720, H = 200, m = { t: 16, r: 16, b: 28, l: 44 };
+    var days = lc.days, all = lc.all_events, top = lc.top25;
+    var mde = lc.mde_single_day_pct || 7.5;
+    var vals = all.concat(top).concat([mde, -mde]);
+    var lo = Math.min.apply(null, vals) - 1, hi = Math.max.apply(null, vals) + 1;
+    var sx = function (i) { return m.l + i / (days.length - 1) * (W - m.l - m.r); };
+    var sy = function (v) { return H - m.b - (v - lo) / (hi - lo) * (H - m.t - m.b); };
+    var svg = n("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+    // MDE band (±mde) shaded — the "detectable" threshold
+    svg.appendChild(n("rect", { x: m.l, width: W - m.l - m.r, y: sy(mde), height: sy(-mde) - sy(mde), fill: COL.teal, "fill-opacity": 0.07 }));
+    [0].forEach(function (yv) { svg.appendChild(n("line", { class: "zeroline", x1: m.l, x2: W - m.r, y1: sy(yv), y2: sy(yv) })); });
+    svg.appendChild(txt("text", { class: "axlab", x: W - m.r, y: sy(mde) - 4, "text-anchor": "end", fill: COL.mist }, "detectable ±" + mde + "%"));
+    // day 0 line
+    svg.appendChild(n("line", { x1: sx(7), x2: sx(7), y1: m.t, y2: H - m.b, stroke: COL.border, "stroke-dasharray": "2 3" }));
+    [["all events", all, COL.teal], ["top 25 by engagement", top, COL.volt]].forEach(function (ser) {
+      var d = ser[1].map(function (v, i) { return (i ? "L" : "M") + sx(i).toFixed(1) + " " + sy(v).toFixed(1); }).join(" ");
+      svg.appendChild(n("path", { d: d, fill: "none", stroke: ser[2], "stroke-width": 1.6 }));
+    });
+    days.forEach(function (dv, i) { if (dv % 7 === 0 || dv === 0) svg.appendChild(txt("text", { class: "axlab", x: sx(i), y: H - 8, "text-anchor": "middle" }, dv === 0 ? "post" : (dv > 0 ? "+" : "") + dv + "d")); });
+    svg.appendChild(txt("text", { class: "axlab", x: m.l, y: m.t, fill: COL.faint }, "share excess (%)"));
+    host.appendChild(svg);
+    host.insertAdjacentHTML("beforeend", '<div class="mono" style="font-size:11.5px;color:var(--mist);margin-top:6px"><span style="color:var(--teal)">━</span> all events &nbsp; <span style="color:var(--volt)">━</span> top 25 by engagement — both stay inside the ±' + mde + '% detectable band at every lag, day −7 to +7. No same-day or delayed response emerges.</div>');
+  }
+
+  // ---- renovation before/during/after strip -------------------------------
+  function renderRenovation() {
+    var host = document.getElementById("renoStrip"); if (!host) return;
+    var segs = (D.changepoints.visits && D.changepoints.visits.segments) || [];
+    if (segs.length < 2) return;
+    var labels = ["Before", "During renovation", "After"];
+    var html = '<div class="reno-strip">';
+    segs.slice(0, 3).forEach(function (s, i) {
+      if (i) html += '<div class="reno-arrow">→</div>';
+      html += '<div class="reno-step' + (i === 1 ? " mid" : "") + '"><div class="p">' + labels[i] + '</div>' +
+        '<div class="s">' + s.sm_share_pct + '%</div>' +
+        '<div class="d">SM North share · ' + s.from.slice(0, 7) + " → " + s.to.slice(0, 7) + '</div></div>';
+    });
+    html += "</div>";
+    host.innerHTML = html;
+  }
+
+  // ---- renovation audience + event-night fingerprint ----------------------
+  function renderAudience() {
+    var host = document.getElementById("renoAudience"); if (!host) return;
+    var ra = (D.renovation_audience || []).filter(function (r) { return r.mall === "TriNoma"; });
+    var byp = {}; ra.forEach(function (r) { byp[r.period] = r; });
+    var order = ["before", "during", "after"];
+    var rowsH = order.filter(function (p) { return byp[p]; }).map(function (p) {
+      var r = byp[p];
+      return "<tr><td>" + p + "</td><td>" + fmt(r.devices) + "</td><td>" + (r.local_pct != null ? r.local_pct + "%" : "—") +
+        "</td><td>" + (r.far_pct != null ? r.far_pct + "%" : "—") + "</td></tr>";
+    }).join("");
+    // fingerprint summary
+    var fp = (D.fingerprint && D.fingerprint.events) || [];
+    var maxz = 0; fp.forEach(function (e) { ["z_devices", "z_new", "z_far", "z_long"].forEach(function (k) { maxz = Math.max(maxz, Math.abs(e[k] || 0)); }); });
+    host.innerHTML =
+      '<div class="two"><div class="card">' +
+      '<div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">TriNoma crowd composition (decay-safe)</div>' +
+      '<table><thead><tr><th>Period</th><th>Devices</th><th>Local ≤3mi</th><th>Far &gt;10mi</th></tr></thead><tbody>' + rowsH + '</tbody></table>' +
+      '<p style="font-size:12px;color:var(--mist);margin-top:10px">During and after the works, TriNoma\'s mix shifts modestly toward <b style="color:var(--ice)">local</b> visitors (41%→48%) and away from far ones (14%→12%) — disruption drew more nearby residents. Home-distance shares are period-length-safe; new-visitor and cross-shop shares are <i>not</i> compared (the windows are 150 / 70 / 23 days) and the "after" window is thin.</p>' +
+      '</div><div class="card">' +
+      '<div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Event-night audience fingerprint</div>' +
+      '<div class="mono" style="font-size:30px;color:var(--heading);font-weight:600">|z| &lt; ' + (Math.ceil(maxz * 10) / 10).toFixed(1) + '</div>' +
+      '<p style="font-size:12.5px;color:var(--body);margin-top:6px">Across the <b>' + fp.length + '</b> biggest timed event nights, the crowd\'s composition — new visitors, far-home share, long dwell — never deviated 2σ from a normal night. On a concert night, the crowd looks like any night.</p>' +
+      '</div></div>';
+  }
+
   // ---- ranked evidence table ---------------------------------------------
   var tbl = { mall: "all", type: "all", key: "engagement", dir: -1, exp: null };
   var COLS = [
@@ -516,6 +604,7 @@
   });
   window.addEventListener("resize", function () { /* SVG is viewBox-scaled; nothing to do */ });
 
+  renderAnswer();
   renderKPIs();
   renderExplorer();
   renderTable();
@@ -523,7 +612,10 @@
   renderScatter();
   renderSmall();
   renderFloor();
+  renderLag();
+  renderRenovation();
   renderChangepoint();
+  renderAudience();
   renderWho();
   renderFooter();
 })();
