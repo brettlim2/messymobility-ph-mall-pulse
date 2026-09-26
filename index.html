@@ -190,6 +190,40 @@ footer a{color:var(--mist);}
 .tip b{color:var(--heading);}
 @media(max-width:560px){.nav{display:none;} }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto;}}
+/* frame-first reorder (visual only; DOM unchanged) */
+main.wrap{display:flex;flex-direction:column;}
+#top{order:0;} #detection{order:1;} #renovation{order:2;} #explorer{order:3;}
+#campaigns{order:4;} #engagement{order:5;} #didit{order:6;} #audience{order:7;}
+#methods{order:8;} footer{order:9;}
+/* window chip on section headers */
+.win{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--faint);
+  border:1px solid var(--wire);border-radius:20px;padding:2px 10px;margin-left:auto;white-space:nowrap;}
+.hero .win{margin-left:0;display:inline-block;margin-top:4px;}
+/* plain-english glosses */
+.gloss{font-size:12px;color:var(--mist);margin-top:10px;line-height:1.7;}
+.gloss b{color:var(--ice);font-weight:600;}
+.abbr{border-bottom:1px dotted var(--faint);cursor:help;}
+/* pooled estimate hero stat */
+.pooled{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin:4px 0 8px;}
+.pooled .big{font-family:var(--disp);font-weight:700;font-size:32px;color:var(--heading);letter-spacing:-.02em;}
+.pooled .ci{font-family:var(--mono);font-size:13px;color:var(--mist);}
+.note-flag{background:var(--callout);border:1px solid var(--border);border-left:3px solid var(--mist);
+  border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;color:var(--body);margin-top:14px;}
+.note-flag b{color:var(--heading);}
+/* campaign group rows */
+#rankTable tr.grp td{background:var(--panel);}
+#rankTable tr.grp td:first-child{font-family:var(--sans);color:var(--heading);}
+#rankTable .exp-ind{color:var(--faint);font-family:var(--mono);font-size:11px;margin-right:6px;}
+#rankTable tr.member td{background:var(--abyss);color:var(--mist);font-size:12px;}
+#rankTable tr.member td:first-child{padding-left:26px;color:var(--mist);}
+/* methods */
+.methods{columns:2;column-gap:28px;}
+@media(max-width:720px){.methods{columns:1;}}
+.methods h3{font-size:13px;color:var(--teal-lt);font-family:var(--mono);letter-spacing:.03em;margin:0 0 4px;break-after:avoid;}
+.methods .m{break-inside:avoid;margin-bottom:16px;}
+.methods p{font-size:12.5px;color:var(--body);margin:0;}
+/* chart markers legend */
+.mk-line{display:inline-block;width:12px;height:0;border-top:1px dotted var(--faint);vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -198,11 +232,10 @@ footer a{color:var(--mist);}
     <span class="mark"><span class="dot"></span> MessyMobility</span>
     <span class="mono htitle" style="font-size:12px;letter-spacing:.06em">Signal &amp; Footfall</span>
     <nav class="nav">
-      <a href="#explorer">Explore</a>
-      <a href="#campaigns">Campaigns</a>
-      <a href="#engagement">Engagement</a>
       <a href="#detection">Detection</a>
       <a href="#renovation">Renovation</a>
+      <a href="#explorer">Posts</a>
+      <a href="#campaigns">Campaigns</a>
       <a href="#audience">Audience</a>
       <a href="#methods">Methods</a>
     </nav>
@@ -211,20 +244,23 @@ footer a{color:var(--mist);}
 
 <main class="wrap">
   <section class="hero" id="top">
-    <div class="eyebrow">Manila · SM North EDSA &amp; TriNoma · 12 months</div>
-    <h1>Social engagement <em>≠</em> measurable mall traffic.</h1>
-    <p class="lede">We tracked a year of anonymised movement across two of Manila's
-      biggest malls and lined it up against every social post we could find. Across
-      thousands of posts, we could not detect a footfall response to any of them —
-      but the same data <b>clearly detects a mall-scale change</b> when one happens.
-      Here's the evidence.</p>
+    <div class="eyebrow">Manila · SM North EDSA &amp; TriNoma</div>
+    <h1>No single post moved the crowd <em>enough for us to see it.</em></h1>
+    <p class="lede">We lined up anonymised movement across two of Manila's biggest
+      malls against every social post we could find. No individual post produced a
+      <b>mall-wide</b> footfall response we could distinguish from normal variation —
+      yet the same data <b>clearly registers a mall-scale change</b> when one happens.
+      (Smaller or single-tenant effects can sit below what a location panel this size
+      can resolve.) Here's the evidence.</p>
+    <div class="win" id="heroWin">—</div>
     <div class="answer-cards" id="answerCards"></div>
-    <a class="explore-cta" href="#explorer">Explore the evidence ↓</a>
+    <a class="explore-cta" href="#detection">See what the data can resolve ↓</a>
     <div class="kpis" id="kpis"></div>
   </section>
 
   <section id="explorer">
-    <div class="sechd"><span class="num">01</span><h2>The event explorer</h2></div>
+    <div class="sechd"><span class="num">03</span><h2>Now look at the posts, day by day</h2>
+      <span class="win" id="winExplorer">—</span></div>
     <p class="secsub">Observed daily footfall (solid line) against what a normal
       same-weekday would predict (dashed line, with a shaded normal-variation band).
       Every captioned post sits on its date, sized by engagement. Pick a mall, then
@@ -244,6 +280,7 @@ footer a{color:var(--mist);}
           <span><span class="mk" style="background:var(--teal-pale)"></span>promo</span>
           <span><span class="mk" style="background:var(--faint)"></span>organic</span>
           <span><span class="mk" style="background:var(--volt)"></span>biggest</span>
+          <span><span class="mk-line"></span>payday / holiday</span>
         </div>
       </div>
       <div class="explorer">
@@ -254,10 +291,13 @@ footer a{color:var(--mist);}
   </section>
 
   <section id="campaigns">
-    <div class="sechd"><span class="num">02</span><h2>Every campaign, ranked</h2></div>
-    <p class="secsub">Expected vs observed footfall on each post's day, with the lift
-      and whether it clears the normal-variation band. Sort by any column; click a
-      row to see its ±7-day path. Filter by mall or post type.</p>
+    <div class="sechd"><span class="num">04</span><h2>Every campaign, ranked</h2>
+      <span class="win" id="winCampaigns">—</span></div>
+    <p class="secsub">Posts grouped into campaigns (a burst of posts about the same
+      thing), so repeated posts don't count as separate evidence. <b>Best day (σ)</b>
+      is the campaign's single strongest day versus a normal same-weekday — if even
+      that stays under +2σ, no day cleared the noise band. Sort any column; click a
+      campaign to expand its posts. Filter by mall or type.</p>
     <div class="card">
       <div class="controls">
         <span class="lbl">Mall</span>
@@ -279,7 +319,8 @@ footer a{color:var(--mist);}
   </section>
 
   <section id="engagement">
-    <div class="sechd"><span class="num">03</span><h2>Does engagement predict a footfall response?</h2></div>
+    <div class="sechd"><span class="num">05</span><h2>Does engagement predict a footfall response?</h2>
+      <span class="win" id="winEngagement">—</span></div>
     <p class="secsub">Each post plotted by engagement (how far it travelled online)
       against how far that day's footfall deviated from normal (in standard
       deviations). If posts drove traffic, high-engagement dots would sit high. The
@@ -290,7 +331,7 @@ footer a{color:var(--mist);}
   </section>
 
   <section id="didit">
-    <div class="sechd"><span class="num">04</span><h2>Did it move? The ten biggest posts</h2></div>
+    <div class="sechd"><span class="num">·</span><h2>The ten biggest posts, up close</h2></div>
     <p class="secsub">The posts a marketer would bet on — highest engagement — each
       shown as footfall from 7 days before to 7 days after (day 0 marked). If posts
       drove footfall, you'd see a step at day 0.</p>
@@ -298,24 +339,31 @@ footer a{color:var(--mist);}
   </section>
 
   <section id="detection">
-    <div class="sechd"><span class="num">05</span><h2>How much change can we detect?</h2></div>
-    <p class="secsub">A location panel is a sample. Day-to-day it wobbles by hundreds
-      of shoppers on its own. An event has to clear that wobble — the noise floor —
-      to register at all.</p>
+    <div class="sechd"><span class="num">01</span><h2>What can this data actually resolve?</h2>
+      <span class="win" id="winDetection">—</span></div>
+    <p class="secsub">Before asking whether posts worked, know the instrument's
+      resolution. A location panel is a sample: day-to-day it wobbles by hundreds of
+      shoppers on its own. An effect has to clear that wobble to be visible.</p>
+    <div class="card" style="margin-bottom:16px">
+      <div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Pooled across every event — the most powerful test</div>
+      <div class="pooled" id="pooledEvent"></div>
+      <div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px">…and the averaged footfall path, day −7 to +7</div>
+      <div id="lagChart"></div>
+    </div>
     <div class="two">
       <div class="card"><div id="floorChart"></div></div>
       <div class="card">
-        <div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Minimum detectable move (80% power)</div>
+        <div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Minimum detectable effect — 7-day campaign, cross-mall share of dwell ≥10 min visitors, 80% power</div>
         <table id="mdeTable"></table>
-        <p style="font-size:12.5px;color:var(--mist);margin-top:12px">A 7-day campaign
-          must shift the cross-mall share by more than these amounts to be
-          distinguishable from noise. Single-day effects need far more.</p>
+        <p style="font-size:12.5px;color:var(--mist);margin-top:12px">This is a
+          <b style="color:var(--ice)">campaign-scale</b> detection floor. It is
+          different from the <b style="color:var(--ice)">per-day ±2σ band</b> used
+          later to flag one unusual day: a single day is far noisier than a 7-day
+          window, so it needs a much bigger move to stand out.</p>
       </div>
     </div>
-    <div class="card" style="margin-top:16px">
-      <div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Footfall around events, day −7 to +7 (averaged over all events)</div>
-      <div id="lagChart"></div>
-    </div>
+    <div class="note-flag" id="multiTest">—</div>
+    <div class="gloss" id="glossary"></div>
     <div class="callout" style="margin-top:16px">
       <h3>The honest headline</h3>
       <p id="headline">—</p>
@@ -323,21 +371,29 @@ footer a{color:var(--mist);}
   </section>
 
   <section id="renovation">
-    <div class="sechd"><span class="num">06</span><h2>Can the data detect real change? Yes.</h2></div>
-    <p class="secsub">The instrument isn't blind — it needs a mall-scale change. When
-      TriNoma renovated (Feb–May 2026) its share of the two-mall panel shifted and
-      held, then recovered. The same system that finds no signal from individual
-      posts clearly registers a structural change. (Share is used because it cancels
-      panel drift; raw visitor counts are not comparable across the year.)</p>
+    <div class="sechd"><span class="num">02</span><h2>Proof the instrument works: the renovation</h2>
+      <span class="win" id="winRenovation">—</span></div>
+    <p class="secsub">While TriNoma was being renovated (Feb–May 2026),
+      <b>SM North's share of the two malls rose from 54.6% to 56.5%</b> — i.e. TriNoma
+      lost about 2 points of share while it was disrupted — then moved back toward
+      baseline (55.0%) in the short 23-day post-period. The same system that finds no
+      signal from individual posts clearly registers this mall-scale change.</p>
     <div id="renoStrip"></div>
     <div class="card" style="margin-top:12px"><div id="cpChart"></div></div>
+    <div class="note-flag" style="margin-top:12px"><b>Read shares carefully.</b> The
+      two malls are physically linked across EDSA, so this share partly reflects
+      visitors <b>substituting</b> between them. A campaign that grew the two malls'
+      <i>combined</i> traffic would not show up here at all — share only sees
+      one mall gaining relative to the other. We use share because raw counts aren't
+      comparable across the year (the device panel shrinks over time).</div>
   </section>
 
   <section id="audience">
-    <div class="sechd"><span class="num">07</span><h2>Who changed their behaviour?</h2></div>
+    <div class="sechd"><span class="num">06</span><h2>Who changed their behaviour?</h2>
+      <span class="win" id="winAudience">—</span></div>
     <p class="secsub">During TriNoma's renovation, did its crowd change? Compositional
-      shares (decay-safe) across before / during / after. Then: did the crowd on big
-      event nights look any different? (It didn't.)</p>
+      shares (a percentage, so panel drift doesn't distort it) across before / during
+      / after. Then: did the crowd on big event nights look any different? (It didn't.)</p>
     <div id="renoAudience"></div>
     <div class="two" style="margin-top:16px">
       <div class="card"><div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Reach by home distance</div><div id="reachChart"></div></div>
@@ -345,7 +401,14 @@ footer a{color:var(--mist);}
     </div>
   </section>
 
-  <footer id="methods">
+  <section id="methods">
+    <div class="sechd"><span class="num">07</span><h2>Methods &amp; caveats</h2></div>
+    <p class="secsub">What's behind every number above, in plain terms — so you can
+      judge the conclusions rather than take them on trust.</p>
+    <div class="card"><div class="methods" id="methodsBody"></div></div>
+  </section>
+
+  <footer>
     <div id="footmeta"></div>
   </footer>
 </main>

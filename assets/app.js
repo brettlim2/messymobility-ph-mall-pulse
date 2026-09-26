@@ -10,6 +10,7 @@
     heading: "#f2f7f6", body: "#c3d4d1"
   };
   var TYPE_COL = { event: COL.teal, promo: COL.tealPale, organic: COL.faint };
+  var HOLIDAYS = { "2026-01-01": "New Year", "2026-02-17": "Chinese New Year", "2026-02-25": "EDSA", "2026-04-02": "Maundy Thu", "2026-04-03": "Good Fri", "2026-04-09": "Araw ng Kagitingan", "2026-05-01": "Labour Day" };
   var tip = document.getElementById("tip");
   var state = { mall: "SM_North_EDSA", sel: null };
 
@@ -90,6 +91,20 @@
       if (!seen[m]) {
         seen[m] = 1; var xx = sx(days(r.day));
         svg.appendChild(txt("text", { class: "axlab", x: xx, y: EH - 8, "text-anchor": "middle" }, r.day.slice(5, 7) + "/" + r.day.slice(2, 4)));
+      }
+    });
+    // confounder markers: paydays (15th + month-end) and PH holidays
+    var byDayAll = {}; d.forEach(function (r) { byDayAll[r.day] = 1; });
+    d.forEach(function (r) {
+      var dd = r.day, dnum = +dd.slice(8, 10);
+      var nextDay = (function () { var t = new Date(dd); t.setDate(t.getDate() + 1); return t.toISOString().slice(0, 10); })();
+      var isMonthEnd = (+nextDay.slice(8, 10) === 1);
+      var xx = sx(days(dd));
+      if (dnum === 15 || isMonthEnd) {
+        svg.appendChild(n("line", { x1: xx, x2: xx, y1: EH - EM.b, y2: EH - EM.b - 12, stroke: COL.faint, "stroke-width": 1, "stroke-dasharray": "1 2" }));
+      }
+      if (HOLIDAYS[dd]) {
+        svg.appendChild(n("line", { x1: xx, x2: xx, y1: EM.t, y2: EH - EM.b, stroke: COL.mist, "stroke-width": 1, "stroke-dasharray": "1 3", "stroke-opacity": 0.35 }));
       }
     });
     // expected footfall + normal-variation band (behind the observed line)
@@ -371,21 +386,57 @@
   }
 
   // ---- answer cards (hero) ------------------------------------------------
+  function mon(iso) { return iso ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+iso.slice(5, 7) - 1] + " " + iso.slice(0, 4) : "?"; }
+  function renderWindows() {
+    var m = D.meta;
+    function set(id, txt) { var e = document.getElementById(id); if (e) e.textContent = txt; }
+    set("heroWin", "Movement panel " + mon(m.movement_window[0]) + " – " + mon(m.movement_window[1]) + " (12 mo)");
+    set("winDetection", "Analysis window " + mon(m.renovation_window[0]) + " – " + mon(m.renovation_window[1]));
+    set("winRenovation", "Renovation window " + mon(m.renovation_window[0]) + " – " + mon(m.renovation_window[1]));
+    set("winExplorer", "Footfall " + mon(m.footfall_window[0]) + " – " + mon(m.footfall_window[1]) + " · posts " + mon(m.post_window[0]) + " – " + mon(m.post_window[1]));
+    set("winCampaigns", "Posts " + mon(m.post_window[0]) + " – " + mon(m.post_window[1]));
+    set("winEngagement", "Posts " + mon(m.post_window[0]) + " – " + mon(m.post_window[1]));
+    set("winAudience", "Renovation window " + mon(m.renovation_window[0]) + " – " + mon(m.renovation_window[1]));
+  }
   function renderAnswer() {
     var host = document.getElementById("answerCards"); if (!host) return;
     var c = D.insight_cards;
     var cards = [
-      ["Social impact", "0", "of 10", "highest-engagement posts produced a footfall response we can detect", true],
+      ["Social impact", "0", "of 10", "highest-engagement posts produced a <b>mall-wide</b> footfall response we can detect", true],
       ["What does move traffic", "+" + c.what_moves.renovation_share_swing_pp + "pp", "share",
-        "sustained cross-mall share shift during the TriNoma renovation", false],
+        "shift in SM North's share of the two malls while TriNoma was renovating", false],
       ["Detection threshold", "±" + c.detection_threshold.campaign7d_pct + "%", "7-day",
-        "the smallest weekly campaign effect this panel can reliably detect", false]
+        "smallest weekly campaign effect on cross-mall share we can reliably detect", false]
     ];
     host.innerHTML = cards.map(function (x) {
       return '<div class="acard' + (x[4] ? " signal" : "") + '"><div class="k">' + x[0] + '</div>' +
         '<div class="big">' + x[1] + ' <span style="font-size:15px;color:var(--mist);font-family:var(--mono)">' + x[2] + '</span></div>' +
         '<div class="cap">' + x[3] + '</div></div>';
     }).join("");
+  }
+
+  // ---- detection extras: pooled estimate, multiple testing, glossary ------
+  function renderDetectionExtras() {
+    var pe = D.pooled_event || {};
+    var host = document.getElementById("pooledEvent");
+    if (host && pe.est_pct != null) {
+      host.innerHTML = '<span class="big">' + (pe.est_pct > 0 ? "+" : "") + pe.est_pct + '%</span>' +
+        '<span class="ci">95% CI ' + pe.ci_lo + '% to ' + (pe.ci_hi > 0 ? "+" : "") + pe.ci_hi + '% · ' + pe.n_events + ' events</span>' +
+        '<span style="color:var(--mist);font-size:12.5px;flex-basis:100%">average day-0 change in cross-mall share, pooled across every event — statistically indistinguishable from zero, and far inside the range we could detect.</span>';
+    }
+    var testable = (D.insight_cards.social_impact || {}).testable || D.posts.filter(function (p) { return p.z != null; }).length;
+    var quiet = D.posts.filter(function (p) { return p.verdict === "unusually quiet"; }).length;
+    var exp5 = Math.round(0.05 * testable);
+    var mt = document.getElementById("multiTest");
+    if (mt) mt.innerHTML = "<b>A note on chance.</b> With " + testable + " posts tested, about " +
+      exp5 + " (~5%) will land outside the ±2σ band by luck alone. We see " + quiet +
+      ", and all of them on the <i>quiet</i> side — the pattern of noise, not of campaigns lifting traffic.";
+    var gl = document.getElementById("glossary");
+    if (gl) gl.innerHTML =
+      "<b>σ (sigma):</b> the typical day-to-day wobble in footfall. " +
+      "<b>±2σ band:</b> the range a normal day stays within about 95% of the time. " +
+      "<b>80% power:</b> an effect big enough that we'd catch it 4 times out of 5 if it were real. " +
+      "<b>Cross-mall share:</b> each mall's slice of the two malls' combined visitors — a percentage, so it isn't distorted as the device panel shrinks over the year (“panel drift”).";
   }
 
   // ---- lag curve (detection) ----------------------------------------------
@@ -450,7 +501,7 @@
       '<div class="two"><div class="card">' +
       '<div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">TriNoma crowd composition (decay-safe)</div>' +
       '<table><thead><tr><th>Period</th><th>Devices</th><th>Local ≤3mi</th><th>Far &gt;10mi</th></tr></thead><tbody>' + rowsH + '</tbody></table>' +
-      '<p style="font-size:12px;color:var(--mist);margin-top:10px">During and after the works, TriNoma\'s mix shifts modestly toward <b style="color:var(--ice)">local</b> visitors (41%→48%) and away from far ones (14%→12%) — disruption drew more nearby residents. Home-distance shares are period-length-safe; new-visitor and cross-shop shares are <i>not</i> compared (the windows are 150 / 70 / 23 days) and the "after" window is thin.</p>' +
+      '<p style="font-size:12px;color:var(--mist);margin-top:10px">Local share is essentially <b style="color:var(--ice)">flat before→during</b> the works (41%→41%); the rise to 48% appears only in the thin 23-day post-period, so treat it as a <b style="color:var(--ice)">tentative post-period composition change</b>, not a renovation effect. Home-distance shares are the only period-length-safe comparison here; new-visitor and cross-shop shares are <i>not</i> compared (the windows are 150 / 70 / 23 days).</p>' +
       '</div><div class="card">' +
       '<div class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Event-night audience fingerprint</div>' +
       '<div class="mono" style="font-size:30px;color:var(--heading);font-weight:600">|z| &lt; ' + (Math.ceil(maxz * 10) / 10).toFixed(1) + '</div>' +
@@ -461,71 +512,86 @@
   // ---- ranked evidence table ---------------------------------------------
   var tbl = { mall: "all", type: "all", key: "engagement", dir: -1, exp: null };
   var COLS = [
-    { k: "theme", t: "Campaign", num: false },
-    { k: "type", t: "Type", num: false },
-    { k: "engagement", t: "Engagement", num: true },
-    { k: "expected", t: "Expected", num: true },
-    { k: "observed", t: "Observed", num: true },
-    { k: "lift_pct", t: "Lift", num: true },
-    { k: "detectable", t: "Detectable?", num: false }
+    { k: "name", t: "Campaign" }, { k: "type", t: "Type" }, { k: "n", t: "Posts" },
+    { k: "date", t: "Dates" }, { k: "engagement", t: "Engagement" },
+    { k: "zmax", t: "Best day (σ)" }, { k: "detectable", t: "Detectable?" }
   ];
-  function tableRows() {
-    return D.posts.filter(function (p) {
+  function campaignKey(p) { return meaningful(p.theme) ? "t:" + p.theme.trim().toLowerCase() : "p:" + p.id; }
+  function buildCampaigns() {
+    var f = D.posts.filter(function (p) {
       return p.z != null && postName(p) != null &&
         (tbl.mall === "all" || p.mall === tbl.mall) &&
         (tbl.type === "all" || p.type === tbl.type);
-    }).sort(function (a, b) {
-      var x = tbl.key === "theme" ? postName(a) : a[tbl.key];
-      var y = tbl.key === "theme" ? postName(b) : b[tbl.key];
-      if (x == null) x = -1e9; if (y == null) y = -1e9;
+    });
+    var groups = {};
+    f.forEach(function (p) { var k = campaignKey(p); (groups[k] = groups[k] || []).push(p); });
+    var out = Object.keys(groups).map(function (k) {
+      var ms = groups[k].sort(function (a, b) { return days(a.date) - days(b.date); });
+      var tc = {}; ms.forEach(function (p) { tc[p.type] = (tc[p.type] || 0) + 1; });
+      var type = Object.keys(tc).sort(function (a, b) { return tc[b] - tc[a]; })[0];
+      var zs = ms.map(function (p) { return p.z; });
+      return {
+        key: k, name: meaningful(ms[0].theme) ? ms[0].theme : postName(ms[0]),
+        type: type, n: ms.length,
+        engagement: ms.reduce(function (s, p) { return s + p.engagement; }, 0),
+        dateLo: ms[0].date, dateHi: ms[ms.length - 1].date, date: days(ms[ms.length - 1].date),
+        zmax: Math.max.apply(null, zs),
+        detectable: ms.some(function (p) { return p.detectable; }), members: ms
+      };
+    });
+    out.sort(function (a, b) {
+      var x = a[tbl.key], y = b[tbl.key];
       if (typeof x === "string") return tbl.dir * x.localeCompare(y);
       return tbl.dir * (x - y);
     });
+    return out;
   }
+  function detCell(v) { return v ? '<span class="det-yes">yes</span>' : '<span class="det-no">no</span>'; }
   function renderTable() {
     var t = document.getElementById("rankTable"); if (!t) return;
     var head = "<thead><tr>" + COLS.map(function (c) {
       var ar = tbl.key === c.k ? ' <span class="ar">' + (tbl.dir < 0 ? "▼" : "▲") + "</span>" : "";
       return '<th data-k="' + c.k + '">' + c.t + ar + "</th>";
     }).join("") + "</tr></thead>";
-    var rows = tableRows();
+    var camps = buildCampaigns();
     var body = "<tbody>";
-    rows.forEach(function (p) {
-      var lift = p.lift_pct == null ? "—" : (p.lift_pct > 0 ? "+" : "") + p.lift_pct + "%";
-      var liftc = p.lift_pct > 0 ? "pos" : (p.lift_pct < 0 ? "neg" : "flat");
-      var det = p.detectable ? '<span class="det-yes">yes</span>' : '<span class="det-no">no</span>';
-      body += '<tr data-id="' + escAttr(p.id) + '">' +
-        '<td><span class="nm">' + esc(postName(p)) + "</span></td>" +
-        '<td><span class="vt">' + p.type + "</span></td>" +
-        "<td>" + fmt(p.engagement) + "</td><td>" + fmt(p.expected) + "</td><td>" + fmt(p.observed) +
-        '</td><td class="' + liftc + '">' + lift + "</td><td>" + det + "</td>";
-      if (tbl.exp === p.id) {
-        body += '</tr><tr class="exprow"><td colspan="7"><div id="exp_' + escAttr(p.id) + '"></div>' +
-          '<div class="mono" style="font-size:10px;color:var(--faint);margin-top:4px">−7d — day 0 — +7d · expected ' +
-          fmt(p.expected) + ' · observed ' + fmt(p.observed) + ' · z ' + p.z + '</div></td>';
+    camps.forEach(function (c) {
+      var dates = c.dateLo === c.dateHi ? c.dateLo : c.dateLo + " – " + c.dateHi;
+      var ind = c.n > 1 ? '<span class="exp-ind">' + (tbl.exp === c.key ? "▾" : "▸") + "</span>"
+        : '<span class="exp-ind" style="opacity:.35">·</span>';
+      body += '<tr class="grp" data-key="' + escAttr(c.key) + '">' +
+        "<td>" + ind + esc(c.name) + "</td><td><span class=\"vt\">" + c.type + "</span></td>" +
+        "<td>" + c.n + '</td><td style="font-family:var(--mono);color:var(--mist);font-size:12px">' + dates + "</td>" +
+        "<td>" + fmt(c.engagement) + "</td><td>" + (c.zmax > 0 ? "+" : "") + c.zmax.toFixed(2) + "σ</td>" +
+        "<td>" + detCell(c.detectable) + "</td></tr>";
+      if (tbl.exp === c.key) {
+        c.members.forEach(function (p) {
+          body += '<tr class="member" data-id="' + escAttr(p.id) + '">' +
+            "<td>" + p.date + " · " + esc(postName(p) || p.platform) + "</td><td>" + p.platform +
+            "</td><td></td><td></td><td>" + fmt(p.engagement) + "</td><td>" + (p.z > 0 ? "+" : "") + p.z +
+            "σ</td><td>" + detCell(p.detectable) + "</td></tr>";
+        });
       }
-      body += "</tr>";
     });
     body += "</tbody>";
     t.innerHTML = head + body;
     t.querySelectorAll("thead th").forEach(function (th) {
       th.addEventListener("click", function () {
         var k = th.dataset.k;
-        if (tbl.key === k) tbl.dir *= -1; else { tbl.key = k; tbl.dir = (k === "theme" || k === "type") ? 1 : -1; }
+        if (tbl.key === k) tbl.dir *= -1; else { tbl.key = k; tbl.dir = (k === "name" || k === "type") ? 1 : -1; }
         renderTable();
       });
     });
-    t.querySelectorAll("tbody tr[data-id]").forEach(function (tr) {
-      tr.addEventListener("click", function () {
-        tbl.exp = (tbl.exp === tr.dataset.id) ? null : tr.dataset.id;
-        renderTable();
+    t.querySelectorAll("tr.grp").forEach(function (tr) {
+      tr.addEventListener("click", function () { var k = tr.dataset.key; tbl.exp = (tbl.exp === k) ? null : k; renderTable(); });
+    });
+    t.querySelectorAll("tr.member").forEach(function (tr) {
+      tr.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var p = D.posts.filter(function (x) { return x.id === tr.dataset.id; })[0];
+        if (p) { state.mall = p.mall === "Both" ? state.mall : p.mall; syncMallSeg(); renderExplorer(); selectPost(p); document.getElementById("explorer").scrollIntoView({ behavior: "smooth" }); }
       });
     });
-    if (tbl.exp) {
-      var p = D.posts.filter(function (x) { return x.id === tbl.exp; })[0];
-      var host = document.querySelector('[id="exp_' + tbl.exp + '"]');
-      if (host && p) host.appendChild(sparkline(p.path || [], 320, 60));
-    }
   }
   function wireTableFilters() {
     var mm = document.getElementById("tblmall"), tt = document.getElementById("tbltype");
@@ -583,6 +649,30 @@
       " Every point stays inside the ±2σ noise band on the lift side.";
   }
 
+  // ---- methods ------------------------------------------------------------
+  function renderMethods() {
+    var host = document.getElementById("methodsBody"); if (!host) return;
+    var m = D.meta;
+    var items = [
+      ["Data & windows", "An anonymised device-movement panel (" + mon(m.movement_window[0]) + " – " + mon(m.movement_window[1]) +
+        ") for the two malls; a daily footfall series (" + mon(m.footfall_window[0]) + " – " + mon(m.footfall_window[1]) +
+        "); captioned social posts (" + mon(m.post_window[0]) + " – " + mon(m.post_window[1]) +
+        "); and the renovation window (" + mon(m.renovation_window[0]) + " – " + mon(m.renovation_window[1]) +
+        "). Only aggregates are shown — no device-level data."],
+      ["Expected & the band", "“Expected” for a day is the average of the same weekday over the surrounding ±28 days. The band is ±2σ around it — the range a normal day stays within ~95% of the time. A day is flagged only when it falls outside the band."],
+      ["Matching posts to footfall", "Each post is placed on its publish date; that day (and the ±7 days around it) is compared with the expected line. Posts are grouped into campaigns so a burst about one thing counts once, not many times."],
+      ["Panel drift", "The device panel shrinks over the year, so raw visitor counts aren't comparable across months. Anything spanning time uses shares or percentages (“decay-safe”) instead of counts."],
+      ["Two detection floors", "The per-day ±2σ band flags a single unusual day. The 80%-power minimum detectable effect is for a 7-day campaign on cross-mall share of dwell≥10 visitors — smaller, because a week averages out daily noise. They are different questions."],
+      ["Chance & pooling", "With hundreds of posts, ~5% clear ±2σ by luck. The pooled estimate across all events (day-0 ≈ 0%, CI brackets zero) is the more reliable test than per-post pass/fail."],
+      ["Lag & confounders", "Announcement posts precede an event; event-day posts coincide with it — so a day-0 comparison mixes the two. Paydays (15th & month-end), public holidays (marked on the chart) and weather also move footfall and are named but not statistically controlled."],
+      ["Adjacent-mall substitution", "SM North and TriNoma are physically linked across EDSA, so cross-mall share partly measures visitors switching between them. A campaign that grew the two malls' combined traffic would be invisible in share terms."],
+      ["What this can & can't resolve", "It can resolve mall-wide movements of a few percent sustained over a week (like the renovation). It cannot resolve single-tenant effects, small single-day blips, or absolute footfall counts — those sit below this panel's resolution."]
+    ];
+    host.innerHTML = items.map(function (it) {
+      return '<div class="m"><h3>' + it[0] + "</h3><p>" + it[1] + "</p></div>";
+    }).join("");
+  }
+
   // ---- footer -------------------------------------------------------------
   function renderFooter() {
     var m = D.meta;
@@ -608,6 +698,7 @@
   });
   window.addEventListener("resize", function () { /* SVG is viewBox-scaled; nothing to do */ });
 
+  renderWindows();
   renderAnswer();
   renderKPIs();
   renderExplorer();
@@ -616,10 +707,12 @@
   renderScatter();
   renderSmall();
   renderFloor();
+  renderDetectionExtras();
   renderLag();
   renderRenovation();
   renderChangepoint();
   renderAudience();
   renderWho();
+  renderMethods();
   renderFooter();
 })();
