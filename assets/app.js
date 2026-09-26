@@ -226,7 +226,7 @@
   function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
   function escAttr(s) { return esc(s).replace(/"/g, "&quot;"); }
   // A usable campaign name: theme, else title, else null (row is hidden).
-  function meaningful(s) { s = (s == null ? "" : String(s)).trim().toLowerCase(); return !!s && s !== "n/a" && s !== "na" && s !== "none" && s !== "nan"; }
+  function meaningful(s) { s = (s == null ? "" : String(s)).trim().toLowerCase(); return !!s && ["n/a", "na", "n.a.", "none", "nan", "not applicable", "unknown"].indexOf(s) < 0; }
   function postName(p) { return meaningful(p.theme) ? p.theme : (meaningful(p.title) ? p.title : null); }
 
   // Real embedded post via each platform's iframe embed (no third-party SDKs).
@@ -308,16 +308,23 @@
     t.innerHTML = "<tr><th>Outcome</th><th>7-day campaign</th><th>Single day</th></tr>";
     rows.forEach(function (r) {
       var v = r[1] || {};
-      t.innerHTML += "<tr><td>" + r[0] + "</td><td>" + (v.campaign7d_mde_share_lift_pct != null ? "±" + v.campaign7d_mde_share_lift_pct + "%" : "—") +
-        "</td><td>" + (v.single_day_mde_share_lift_pct != null ? "±" + v.single_day_mde_share_lift_pct + "%" : "—") + "</td></tr>";
+      t.innerHTML += "<tr><td>" + r[0] + "</td><td>" + (v.campaign7d_mde_share_lift_pct != null ? "±" + v.campaign7d_mde_share_lift_pct + " pp" : "—") +
+        "</td><td>" + (v.single_day_mde_share_lift_pct != null ? "±" + v.single_day_mde_share_lift_pct + " pp" : "—") + "</td></tr>";
     });
 
-    var standouts = D.posts.filter(function (p) { return p.verdict === "stands out (rare)"; }).length;
+    var testable = D.posts.filter(function (p) { return p.z != null; });
+    var high = testable.filter(function (p) { return p.z >= 2; }).length;
+    var low = testable.filter(function (p) { return p.verdict === "unusually quiet"; }).length;
+    var trimmed = (D.data_quality && D.data_quality.trimmed_days) || [];
     document.getElementById("headline").innerHTML =
-      "Across <b>" + D.posts.length + " captioned posts</b> — including sold-out concerts and " +
-      "fan events with tens of thousands of engagements — <b>" + standouts + "</b> produced a " +
-      "footfall day that stands out from normal same-weekday variation. The posts are real and " +
-      "the crowds are real; the two just don't line up at the scale a location panel can measure.";
+      "Across <b>" + testable.length + " captioned posts</b> with a complete-footfall day (of " +
+      D.posts.length + " total) — including sold-out concerts and fan events with tens of thousands of " +
+      "engagements — <b>none</b> coincided with an unusually <b>high</b> footfall day. <b>" + low +
+      "</b> landed on unusually <b>low</b> days (a couple of genuinely quiet dates), fewer than the " +
+      "~" + Math.round(0.05 * testable.length) + " you'd expect from chance. We excluded the final " +
+      trimmed.length + " days of the export (" + trimmed.join(", ") + "), where the device feed was " +
+      "incomplete and would have shown false dips. The posts are real and the crowds are real; the two " +
+      "just don't line up at the scale this panel can measure.";
   }
 
   // ---- Changepoint (the exception) ---------------------------------------
@@ -420,17 +427,19 @@
     var pe = D.pooled_event || {};
     var host = document.getElementById("pooledEvent");
     if (host && pe.est_pct != null) {
-      host.innerHTML = '<span class="big">' + (pe.est_pct > 0 ? "+" : "") + pe.est_pct + '%</span>' +
-        '<span class="ci">95% CI ' + pe.ci_lo + '% to ' + (pe.ci_hi > 0 ? "+" : "") + pe.ci_hi + '% · ' + pe.n_events + ' events</span>' +
-        '<span style="color:var(--mist);font-size:12.5px;flex-basis:100%">average day-0 change in cross-mall share, pooled across every event — statistically indistinguishable from zero, and far inside the range we could detect.</span>';
+      host.innerHTML = '<span class="big">' + (pe.est_pct > 0 ? "+" : "") + pe.est_pct + ' pp</span>' +
+        '<span class="ci">95% CI ' + pe.ci_lo + ' to ' + (pe.ci_hi > 0 ? "+" : "") + pe.ci_hi + ' pp · ' + pe.n_events + ' events</span>' +
+        '<span style="color:var(--mist);font-size:12.5px;flex-basis:100%">average day-0 change in <b style="color:var(--ice)">cross-mall share</b> (percentage points), pooled across <b style="color:var(--ice)">' + pe.n_events + ' dated events</b> — statistically indistinguishable from zero. This is a broader, more powerful test than the per-post view: it uses the full event scan, not just the 238 posts with captions we display, and it answers the question in share terms rather than raw footfall.</span>';
     }
     var testable = (D.insight_cards.social_impact || {}).testable || D.posts.filter(function (p) { return p.z != null; }).length;
     var quiet = D.posts.filter(function (p) { return p.verdict === "unusually quiet"; }).length;
     var exp5 = Math.round(0.05 * testable);
     var mt = document.getElementById("multiTest");
     if (mt) mt.innerHTML = "<b>A note on chance.</b> With " + testable + " posts tested, about " +
-      exp5 + " (~5%) will land outside the ±2σ band by luck alone. We see " + quiet +
-      ", and all of them on the <i>quiet</i> side — the pattern of noise, not of campaigns lifting traffic.";
+      exp5 + " (~5%) would land outside the ±2σ band by luck alone. We see just <b>" + quiet +
+      "</b>, all on the <i>quiet</i> side — fewer than chance predicts, and the opposite of what a " +
+      "campaign lift would look like. (The bigger apparent dips at the end of May were an incomplete " +
+      "data feed, now excluded — see Methods.)";
     var gl = document.getElementById("glossary");
     if (gl) gl.innerHTML =
       "<b>σ (sigma):</b> the typical day-to-day wobble in footfall. " +
@@ -516,7 +525,7 @@
     { k: "date", t: "Dates" }, { k: "engagement", t: "Engagement" },
     { k: "zmax", t: "Best day (σ)" }, { k: "detectable", t: "Detectable?" }
   ];
-  function campaignKey(p) { return meaningful(p.theme) ? "t:" + p.theme.trim().toLowerCase() : "p:" + p.id; }
+  function campaignKey(p) { return p.campaign_key ? "c:" + p.campaign_key : "p:" + p.id; }
   function buildCampaigns() {
     var f = D.posts.filter(function (p) {
       return p.z != null && postName(p) != null &&
@@ -531,7 +540,7 @@
       var type = Object.keys(tc).sort(function (a, b) { return tc[b] - tc[a]; })[0];
       var zs = ms.map(function (p) { return p.z; });
       return {
-        key: k, name: meaningful(ms[0].theme) ? ms[0].theme : postName(ms[0]),
+        key: k, name: ms[0].campaign || postName(ms[0]),
         type: type, n: ms.length,
         engagement: ms.reduce(function (s, p) { return s + p.engagement; }, 0),
         dateLo: ms[0].date, dateHi: ms[ms.length - 1].date, date: days(ms[ms.length - 1].date),
@@ -545,6 +554,24 @@
       return tbl.dir * (x - y);
     });
     return out;
+  }
+  function renderLearned() {
+    var host = document.getElementById("learned"); if (!host) return;
+    var camps = buildCampaigns();
+    var r = D.pooled_event || {};
+    var cards = [
+      ["No post cleared the bar", "Not one", "campaign",
+        "had even a single day that stood out above normal — the best tops out near +2σ"],
+      ["Engagement doesn't predict traffic", "r = " + ((D.corr_eng_z && D.corr_eng_z.r != null) ? D.corr_eng_z.r.toFixed(2) : "—"), "no lift",
+        "a post going viral online says nothing about footfall that day"],
+      ["What did move", "±2 pp", "share",
+        "only the mall-scale renovation shifted cross-mall share; posts didn't"]
+    ];
+    host.innerHTML = cards.map(function (x) {
+      return '<div class="acard"><div class="k">' + x[0] + '</div>' +
+        '<div class="big">' + x[1] + ' <span style="font-size:15px;color:var(--mist);font-family:var(--mono)">' + x[2] + '</span></div>' +
+        '<div class="cap">' + x[3] + '</div></div>';
+    }).join("");
   }
   function detCell(v) { return v ? '<span class="det-yes">yes</span>' : '<span class="det-no">no</span>'; }
   function renderTable() {
@@ -642,11 +669,12 @@
       svg.appendChild(c);
     });
     host.appendChild(svg);
+    var R = (D.corr_eng_z && D.corr_eng_z.r != null) ? D.corr_eng_z.r : r;
     document.getElementById("scatterFit").innerHTML =
-      "Correlation r = <b style='color:var(--heading)'>" + r.toFixed(2) + "</b> — " +
-      (Math.abs(r) < 0.15 ? "essentially no relationship. Higher engagement does not predict a bigger footfall response."
-        : "slope " + slope.toFixed(2) + "σ per 10× engagement.") +
-      " Every point stays inside the ±2σ noise band on the lift side.";
+      "Correlation r = <b style='color:var(--heading)'>" + R.toFixed(2) + "</b> — <b>no positive relationship</b>: " +
+      "a post travelling further online does not predict a bigger footfall response, and every point stays inside " +
+      "the ±2σ band on the lift side. The slight negative slope mostly reflects that the biggest posts clustered " +
+      "late in the window, when footfall was seasonally lower — timing, not suppression.";
   }
 
   // ---- methods ------------------------------------------------------------
@@ -663,7 +691,9 @@
       ["Matching posts to footfall", "Each post is placed on its publish date; that day (and the ±7 days around it) is compared with the expected line. Posts are grouped into campaigns so a burst about one thing counts once, not many times."],
       ["Panel drift", "The device panel shrinks over the year, so raw visitor counts aren't comparable across months. Anything spanning time uses shares or percentages (“decay-safe”) instead of counts."],
       ["Two detection floors", "The per-day ±2σ band flags a single unusual day. The 80%-power minimum detectable effect is for a 7-day campaign on cross-mall share of dwell≥10 visitors — smaller, because a week averages out daily noise. They are different questions."],
-      ["Chance & pooling", "With hundreds of posts, ~5% clear ±2σ by luck. The pooled estimate across all events (day-0 ≈ 0%, CI brackets zero) is the more reliable test than per-post pass/fail."],
+      ["Chance & pooling", "With hundreds of posts, ~5% clear ±2σ by luck. The pooled estimate across all events (day-0 ≈ 0 pp of cross-mall share, CI brackets zero) is the more reliable test than per-post pass/fail."],
+      ["Which posts vs which events", "Three populations appear here: the 238 captioned posts we can display (explorer, campaigns); the 213 dated events in the full scan (the pooled test); and the cross-mall share design behind the detection floor. They answer the same question from different angles and agree."],
+      ["Data-quality trim", "The final " + ((D.data_quality || {}).trimmed_days || []).length + " days of the export (" + (((D.data_quality || {}).trimmed_days) || []).join(", ") + ") had device coverage below 30% of the daily median — an incomplete feed tail — so they're excluded from all footfall analysis. Left in, they read as large false dips."],
       ["Lag & confounders", "Announcement posts precede an event; event-day posts coincide with it — so a day-0 comparison mixes the two. Paydays (15th & month-end), public holidays (marked on the chart) and weather also move footfall and are named but not statistically controlled."],
       ["Adjacent-mall substitution", "SM North and TriNoma are physically linked across EDSA, so cross-mall share partly measures visitors switching between them. A campaign that grew the two malls' combined traffic would be invisible in share terms."],
       ["What this can & can't resolve", "It can resolve mall-wide movements of a few percent sustained over a week (like the renovation). It cannot resolve single-tenant effects, small single-day blips, or absolute footfall counts — those sit below this panel's resolution."]
@@ -703,6 +733,7 @@
   renderKPIs();
   renderExplorer();
   renderTable();
+  renderLearned();
   wireTableFilters();
   renderScatter();
   renderSmall();
