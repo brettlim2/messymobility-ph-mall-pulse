@@ -210,6 +210,9 @@
   }
   function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
   function escAttr(s) { return esc(s).replace(/"/g, "&quot;"); }
+  // A usable campaign name: theme, else title, else null (row is hidden).
+  function meaningful(s) { s = (s == null ? "" : String(s)).trim().toLowerCase(); return !!s && s !== "n/a" && s !== "na" && s !== "none" && s !== "nan"; }
+  function postName(p) { return meaningful(p.theme) ? p.theme : (meaningful(p.title) ? p.title : null); }
 
   // Real embedded post via each platform's iframe embed (no third-party SDKs).
   function embedHTML(p) {
@@ -242,7 +245,7 @@
     var top = D.posts.slice().sort(function (a, b) { return b.engagement - a.engagement; }).slice(0, 10);
     top.forEach(function (p) {
       var card = document.createElement("div"); card.className = "sm";
-      card.innerHTML = '<div class="t">' + esc(p.theme || "(post)") + '</div>' +
+      card.innerHTML = '<div class="t">' + esc(postName(p) || "(post)") + '</div>' +
         '<div class="m">' + p.date + ' · ' + p.platform + ' · ' + fmt(p.engagement) + ' eng</div>';
       var sp = document.createElement("div");
       sp.appendChild(sparkline(p.path || [], 200, 56));
@@ -468,11 +471,12 @@
   ];
   function tableRows() {
     return D.posts.filter(function (p) {
-      return p.z != null &&
+      return p.z != null && postName(p) != null &&
         (tbl.mall === "all" || p.mall === tbl.mall) &&
         (tbl.type === "all" || p.type === tbl.type);
     }).sort(function (a, b) {
-      var x = a[tbl.key], y = b[tbl.key];
+      var x = tbl.key === "theme" ? postName(a) : a[tbl.key];
+      var y = tbl.key === "theme" ? postName(b) : b[tbl.key];
       if (x == null) x = -1e9; if (y == null) y = -1e9;
       if (typeof x === "string") return tbl.dir * x.localeCompare(y);
       return tbl.dir * (x - y);
@@ -491,7 +495,7 @@
       var liftc = p.lift_pct > 0 ? "pos" : (p.lift_pct < 0 ? "neg" : "flat");
       var det = p.detectable ? '<span class="det-yes">yes</span>' : '<span class="det-no">no</span>';
       body += '<tr data-id="' + escAttr(p.id) + '">' +
-        '<td><span class="nm">' + esc(p.theme || "(post)") + "</span></td>" +
+        '<td><span class="nm">' + esc(postName(p)) + "</span></td>" +
         '<td><span class="vt">' + p.type + "</span></td>" +
         "<td>" + fmt(p.engagement) + "</td><td>" + fmt(p.expected) + "</td><td>" + fmt(p.observed) +
         '</td><td class="' + liftc + '">' + lift + "</td><td>" + det + "</td>";
