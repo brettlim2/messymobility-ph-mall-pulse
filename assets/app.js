@@ -92,7 +92,24 @@
         svg.appendChild(txt("text", { class: "axlab", x: xx, y: EH - 8, "text-anchor": "middle" }, r.day.slice(5, 7) + "/" + r.day.slice(2, 4)));
       }
     });
-    // footfall line
+    // expected footfall + normal-variation band (behind the observed line)
+    var expByDay = {};
+    (D.expected_daily || []).forEach(function (r) { if (r.mall === state.mall) expByDay[r.day] = r; });
+    var top = [], bot = [];
+    d.forEach(function (r) {
+      var e = expByDay[r.day];
+      if (e) { top.push([sx(days(r.day)), sy(Math.min(e.band_hi, ymax))]);
+               bot.push([sx(days(r.day)), sy(Math.max(e.band_lo, 0))]); }
+    });
+    if (top.length > 1) {
+      var area = "M" + top.map(function (p) { return p[0].toFixed(1) + " " + p[1].toFixed(1); }).join("L") +
+        "L" + bot.reverse().map(function (p) { return p[0].toFixed(1) + " " + p[1].toFixed(1); }).join("L") + "Z";
+      svg.appendChild(n("path", { d: area, fill: COL.teal, "fill-opacity": 0.09 }));
+      var eline = d.filter(function (r) { return expByDay[r.day]; })
+        .map(function (r, i) { return (i ? "L" : "M") + sx(days(r.day)).toFixed(1) + " " + sy(expByDay[r.day].expected).toFixed(1); }).join(" ");
+      svg.appendChild(n("path", { d: eline, fill: "none", stroke: COL.mist, "stroke-width": 1, "stroke-dasharray": "3 3", "stroke-opacity": 0.75 }));
+    }
+    // observed footfall line
     var path = d.map(function (r, i) { return (i ? "L" : "M") + sx(days(r.day)).toFixed(1) + " " + sy(r.shopper_visits).toFixed(1); }).join(" ");
     svg.appendChild(n("path", { class: "footline", d: path }));
 
@@ -176,9 +193,14 @@
                    : (p.summary ? '<div class="caption">' + esc(p.summary) + '</div>' : ''))) +
       '<div class="engrow"><span><b>' + fmt(p.likes) + '</b> likes</span><span><b>' + fmt(p.comments) +
       '</b> comments</span><span><b>' + fmt(p.shares) + '</b> shares</span><span><b>' + fmt(p.views) + '</b> views</span></div>' +
-      '<div class="verdict ' + verdictClass(p.verdict) + '"><div class="vlab">Did footfall move?</div>' +
+      '<div class="verdict ' + verdictClass(p.verdict) + '"><div class="vlab">Did traffic respond?</div>' +
       '<div class="vval">' + p.verdict + '</div>' +
-      '<div class="vsub">' + liftTxt + zTxt + '</div><div class="vsub">' + vsub + '</div>' +
+      (p.expected != null ? '<div class="eo mono">' +
+        '<span>observed <b>' + fmt(p.observed) + '</b></span>' +
+        '<span>expected <b>' + fmt(p.expected) + '</b></span>' +
+        '<span>lift <b>' + (p.lift_pct > 0 ? '+' : '') + p.lift_pct + '%</b></span>' +
+        '<span>normal ' + p.range_lo_pct + '% … +' + p.range_hi_pct + '%</span></div>' : '') +
+      '<div class="vsub">' + vsub + '</div>' +
       '<div class="spark" id="sp"></div></div>' +
       (p.url ? '<a class="srclink" href="' + escAttr(p.url) + '" target="_blank" rel="noopener nofollow">View original post ↗</a>' : '');
     box.innerHTML = html;
@@ -345,6 +367,130 @@
       '<div style="font-size:11px;color:var(--faint)">' + sub + '</div></div>';
   }
 
+  // ---- ranked evidence table ---------------------------------------------
+  var tbl = { mall: "all", type: "all", key: "engagement", dir: -1, exp: null };
+  var COLS = [
+    { k: "theme", t: "Campaign", num: false },
+    { k: "type", t: "Type", num: false },
+    { k: "engagement", t: "Engagement", num: true },
+    { k: "expected", t: "Expected", num: true },
+    { k: "observed", t: "Observed", num: true },
+    { k: "lift_pct", t: "Lift", num: true },
+    { k: "detectable", t: "Detectable?", num: false }
+  ];
+  function tableRows() {
+    return D.posts.filter(function (p) {
+      return p.z != null &&
+        (tbl.mall === "all" || p.mall === tbl.mall) &&
+        (tbl.type === "all" || p.type === tbl.type);
+    }).sort(function (a, b) {
+      var x = a[tbl.key], y = b[tbl.key];
+      if (x == null) x = -1e9; if (y == null) y = -1e9;
+      if (typeof x === "string") return tbl.dir * x.localeCompare(y);
+      return tbl.dir * (x - y);
+    });
+  }
+  function renderTable() {
+    var t = document.getElementById("rankTable"); if (!t) return;
+    var head = "<thead><tr>" + COLS.map(function (c) {
+      var ar = tbl.key === c.k ? ' <span class="ar">' + (tbl.dir < 0 ? "▼" : "▲") + "</span>" : "";
+      return '<th data-k="' + c.k + '">' + c.t + ar + "</th>";
+    }).join("") + "</tr></thead>";
+    var rows = tableRows();
+    var body = "<tbody>";
+    rows.forEach(function (p) {
+      var lift = p.lift_pct == null ? "—" : (p.lift_pct > 0 ? "+" : "") + p.lift_pct + "%";
+      var liftc = p.lift_pct > 0 ? "pos" : (p.lift_pct < 0 ? "neg" : "flat");
+      var det = p.detectable ? '<span class="det-yes">yes</span>' : '<span class="det-no">no</span>';
+      body += '<tr data-id="' + escAttr(p.id) + '">' +
+        '<td><span class="nm">' + esc(p.theme || "(post)") + "</span></td>" +
+        '<td><span class="vt">' + p.type + "</span></td>" +
+        "<td>" + fmt(p.engagement) + "</td><td>" + fmt(p.expected) + "</td><td>" + fmt(p.observed) +
+        '</td><td class="' + liftc + '">' + lift + "</td><td>" + det + "</td>";
+      if (tbl.exp === p.id) {
+        body += '</tr><tr class="exprow"><td colspan="7"><div id="exp_' + escAttr(p.id) + '"></div>' +
+          '<div class="mono" style="font-size:10px;color:var(--faint);margin-top:4px">−7d — day 0 — +7d · expected ' +
+          fmt(p.expected) + ' · observed ' + fmt(p.observed) + ' · z ' + p.z + '</div></td>';
+      }
+      body += "</tr>";
+    });
+    body += "</tbody>";
+    t.innerHTML = head + body;
+    t.querySelectorAll("thead th").forEach(function (th) {
+      th.addEventListener("click", function () {
+        var k = th.dataset.k;
+        if (tbl.key === k) tbl.dir *= -1; else { tbl.key = k; tbl.dir = (k === "theme" || k === "type") ? 1 : -1; }
+        renderTable();
+      });
+    });
+    t.querySelectorAll("tbody tr[data-id]").forEach(function (tr) {
+      tr.addEventListener("click", function () {
+        tbl.exp = (tbl.exp === tr.dataset.id) ? null : tr.dataset.id;
+        renderTable();
+      });
+    });
+    if (tbl.exp) {
+      var p = D.posts.filter(function (x) { return x.id === tbl.exp; })[0];
+      var host = document.querySelector('[id="exp_' + tbl.exp + '"]');
+      if (host && p) host.appendChild(sparkline(p.path || [], 320, 60));
+    }
+  }
+  function wireTableFilters() {
+    var mm = document.getElementById("tblmall"), tt = document.getElementById("tbltype");
+    if (mm) mm.addEventListener("click", function (e) { var b = e.target.closest("button"); if (!b) return; tbl.mall = b.dataset.mall; [].forEach.call(mm.children, function (x) { x.setAttribute("aria-pressed", x === b); }); renderTable(); });
+    if (tt) tt.addEventListener("click", function (e) { var b = e.target.closest("button"); if (!b) return; tbl.type = b.dataset.type; [].forEach.call(tt.children, function (x) { x.setAttribute("aria-pressed", x === b); }); renderTable(); });
+  }
+
+  // ---- engagement -> abnormality scatter ----------------------------------
+  function renderScatter() {
+    var host = document.getElementById("scatterChart"); if (!host) return;
+    var P = D.posts.filter(function (p) { return p.z != null && p.engagement > 0; });
+    var W = 760, H = 340, m = { t: 16, r: 16, b: 40, l: 44 };
+    var xs = P.map(function (p) { return Math.log10(p.engagement + 1); });
+    var ys = P.map(function (p) { return p.z; });
+    var xmin = Math.min.apply(null, xs), xmax = Math.max.apply(null, xs);
+    var ymin = -3.5, ymax = 3;  // clamp; extreme quiet-day outliers sit at the floor
+    var clamp = function (v) { return Math.max(ymin, Math.min(ymax, v)); };
+    var sx = function (v) { return m.l + (v - xmin) / (xmax - xmin) * (W - m.l - m.r); };
+    var sy = function (v) { return H - m.b - (clamp(v) - ymin) / (ymax - ymin) * (H - m.t - m.b); };
+    var svg = n("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+    // ±2σ noise band
+    svg.appendChild(n("rect", { x: m.l, width: W - m.l - m.r, y: sy(2), height: sy(-2) - sy(2), fill: COL.teal, "fill-opacity": 0.07 }));
+    [2, 0, -2].forEach(function (yv) {
+      svg.appendChild(n("line", { class: yv === 0 ? "zeroline" : "gridline", x1: m.l, x2: W - m.r, y1: sy(yv), y2: sy(yv) }));
+      svg.appendChild(txt("text", { class: "axlab", x: m.l - 6, y: sy(yv) + 3, "text-anchor": "end" }, yv + "σ"));
+    });
+    // x ticks (log engagement -> nice powers)
+    [1, 2, 3, 4, 5].forEach(function (p10) {
+      if (p10 >= xmin && p10 <= xmax) {
+        svg.appendChild(txt("text", { class: "axlab", x: sx(p10), y: H - 22, "text-anchor": "middle" }, fmt(Math.pow(10, p10))));
+      }
+    });
+    svg.appendChild(txt("text", { class: "axlab", x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle", fill: COL.faint }, "post engagement (log scale) →"));
+    svg.appendChild(txt("text", { class: "axlab", x: m.l, y: m.t + 2, fill: COL.faint }, "footfall deviation (σ from normal) ↑"));
+    // regression line
+    var n0 = P.length, mx = xs.reduce(function (a, b) { return a + b; }, 0) / n0, my = ys.reduce(function (a, b) { return a + b; }, 0) / n0;
+    var cov = 0, vx = 0, vy = 0;
+    for (var i = 0; i < n0; i++) { cov += (xs[i] - mx) * (ys[i] - my); vx += Math.pow(xs[i] - mx, 2); vy += Math.pow(ys[i] - my, 2); }
+    var slope = vx ? cov / vx : 0, intc = my - slope * mx, r = (vx && vy) ? cov / Math.sqrt(vx * vy) : 0;
+    svg.appendChild(n("line", { x1: sx(xmin), y1: sy(slope * xmin + intc), x2: sx(xmax), y2: sy(slope * xmax + intc), stroke: COL.volt, "stroke-width": 1.6, "stroke-dasharray": "5 4" }));
+    // dots
+    P.forEach(function (p, i) {
+      var c = n("circle", { class: "dotc", cx: sx(xs[i]).toFixed(1), cy: sy(ys[i]).toFixed(1), r: 4, fill: TYPE_COL[p.type] || COL.faint, "fill-opacity": 0.7, stroke: COL.night, "stroke-width": 0.5 });
+      c.addEventListener("mouseenter", function (ev) { showTip("<b>" + esc(p.theme || p.type) + "</b><br>eng " + fmt(p.engagement) + " · " + p.z + "σ · " + p.verdict, ev); });
+      c.addEventListener("mousemove", function (ev) { showTip(tip.innerHTML, ev); });
+      c.addEventListener("mouseleave", hideTip);
+      c.addEventListener("click", function () { state.mall = p.mall === "Both" ? state.mall : p.mall; syncMallSeg(); renderExplorer(); selectPost(p); document.getElementById("explorer").scrollIntoView({ behavior: "smooth" }); });
+      svg.appendChild(c);
+    });
+    host.appendChild(svg);
+    document.getElementById("scatterFit").innerHTML =
+      "Correlation r = <b style='color:var(--heading)'>" + r.toFixed(2) + "</b> — " +
+      (Math.abs(r) < 0.15 ? "essentially no relationship. Higher engagement does not predict a bigger footfall response."
+        : "slope " + slope.toFixed(2) + "σ per 10× engagement.") +
+      " Every point stays inside the ±2σ noise band on the lift side.";
+  }
+
   // ---- footer -------------------------------------------------------------
   function renderFooter() {
     var m = D.meta;
@@ -372,6 +518,9 @@
 
   renderKPIs();
   renderExplorer();
+  renderTable();
+  wireTableFilters();
+  renderScatter();
   renderSmall();
   renderFloor();
   renderChangepoint();

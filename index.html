@@ -117,6 +117,9 @@ svg{display:block;width:100%;height:auto;overflow:visible;}
 .verdict .vval{font-family:var(--disp);font-size:16px;font-weight:600;margin-top:3px;}
 .v-normal .vval{color:var(--mist);} .v-quiet .vval{color:var(--coral);} .v-stand .vval{color:var(--volt);}
 .verdict .vsub{font-size:11.5px;color:var(--mist);margin-top:5px;}
+.verdict .eo{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--mist);margin:8px 0;}
+.verdict .eo b{color:var(--ice);}
+td.pos,.pos{color:var(--teal);} td.neg,.neg{color:var(--coral);} td.flat,.flat{color:var(--mist);}
 .spark{margin-top:10px;}
 .srclink{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:11.5px;}
 
@@ -141,6 +144,18 @@ th:first-child,td:first-child{text-align:left;}
 td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--wire);
   font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--body);}
 tr:last-child td{border-bottom:0;}
+.tablewrap{overflow-x:auto;max-height:520px;overflow-y:auto;}
+#rankTable{min-width:640px;}
+#rankTable thead th{position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none;white-space:nowrap;}
+#rankTable thead th:hover{color:var(--body);}
+#rankTable thead th .ar{color:var(--teal);}
+#rankTable tbody tr{cursor:pointer;}
+#rankTable tbody tr:hover td{background:var(--card);}
+#rankTable td .nm{font-family:var(--sans);color:var(--heading);max-width:260px;white-space:normal;}
+.vt{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;border:1px solid var(--border);color:var(--mist);}
+.det-no{color:var(--mist);} .det-yes{color:var(--logo-ink);background:var(--volt);padding:1px 7px;border-radius:20px;}
+.exprow td{background:var(--abyss);padding:14px;}
+.dotc{cursor:pointer;} .dotc:hover{stroke:var(--heading);stroke-width:1.5;}
 
 .callout{background:var(--callout);border:1px solid var(--border);border-left:3px solid var(--volt);
   border-radius:var(--radius);padding:18px 20px;}
@@ -189,10 +204,11 @@ footer a{color:var(--mist);}
 
   <section id="explorer">
     <div class="sechd"><span class="num">01</span><h2>The event explorer</h2></div>
-    <p class="secsub">Daily shopper footfall (the line) with every captioned post
-      plotted on its date (the dots, sized by engagement). Pick a mall, then click a
-      post to see the caption and whether that day's footfall stood out from a normal
-      same-weekday.</p>
+    <p class="secsub">Observed daily footfall (solid line) against what a normal
+      same-weekday would predict (dashed line, with a shaded normal-variation band).
+      Every captioned post sits on its date, sized by engagement. Pick a mall, then
+      click a post to see the actual post and whether traffic responded beyond the
+      band.</p>
     <div class="card feature">
       <div class="controls">
         <span class="lbl">Mall</span>
@@ -201,10 +217,12 @@ footer a{color:var(--mist);}
           <button data-mall="TriNoma" aria-pressed="false">TriNoma</button>
         </div>
         <div class="legend">
+          <span><span class="mk" style="width:14px;height:3px;border-radius:2px;background:var(--teal)"></span>observed</span>
+          <span><span class="mk" style="width:14px;height:0;border-top:1px dashed var(--mist)"></span>expected ± normal</span>
           <span><span class="mk" style="background:var(--teal)"></span>event</span>
           <span><span class="mk" style="background:var(--teal-pale)"></span>promo</span>
           <span><span class="mk" style="background:var(--faint)"></span>organic</span>
-          <span><span class="mk" style="background:var(--volt)"></span>biggest post</span>
+          <span><span class="mk" style="background:var(--volt)"></span>biggest</span>
         </div>
       </div>
       <div class="explorer">
@@ -214,8 +232,44 @@ footer a{color:var(--mist);}
     </div>
   </section>
 
+  <section id="campaigns">
+    <div class="sechd"><span class="num">02</span><h2>Every campaign, ranked</h2></div>
+    <p class="secsub">Expected vs observed footfall on each post's day, with the lift
+      and whether it clears the normal-variation band. Sort by any column; click a
+      row to see its ±7-day path. Filter by mall or post type.</p>
+    <div class="card">
+      <div class="controls">
+        <span class="lbl">Mall</span>
+        <div class="seg" id="tblmall" role="group">
+          <button data-mall="all" aria-pressed="true">All</button>
+          <button data-mall="SM_North_EDSA" aria-pressed="false">SM North</button>
+          <button data-mall="TriNoma" aria-pressed="false">TriNoma</button>
+        </div>
+        <span class="lbl" style="margin-left:8px">Type</span>
+        <div class="seg" id="tbltype" role="group">
+          <button data-type="all" aria-pressed="true">All</button>
+          <button data-type="event" aria-pressed="false">Event</button>
+          <button data-type="promo" aria-pressed="false">Promo</button>
+          <button data-type="organic" aria-pressed="false">Organic</button>
+        </div>
+      </div>
+      <div class="tablewrap"><table id="rankTable"></table></div>
+    </div>
+  </section>
+
+  <section id="engagement">
+    <div class="sechd"><span class="num">03</span><h2>Does engagement predict a footfall response?</h2></div>
+    <p class="secsub">Each post plotted by engagement (how far it travelled online)
+      against how far that day's footfall deviated from normal (in standard
+      deviations). If posts drove traffic, high-engagement dots would sit high. The
+      shaded band is the ±2σ zone where a day is indistinguishable from noise.</p>
+    <div class="card"><div id="scatterChart"></div>
+      <div id="scatterFit" class="mono" style="font-size:12px;color:var(--mist);margin-top:8px"></div>
+    </div>
+  </section>
+
   <section id="didit">
-    <div class="sechd"><span class="num">02</span><h2>Did it move? The ten biggest posts</h2></div>
+    <div class="sechd"><span class="num">04</span><h2>Did it move? The ten biggest posts</h2></div>
     <p class="secsub">The posts a marketer would bet on — highest engagement — each
       shown as footfall from 7 days before to 7 days after (day 0 marked). If posts
       drove footfall, you'd see a step at day 0.</p>
